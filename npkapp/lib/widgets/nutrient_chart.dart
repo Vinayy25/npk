@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:npkapp/models/nutrient_model.dart';
+import 'package:npkapp/utils/colors.dart';
 
 class NutrientTrendChart extends StatelessWidget {
   final NutrientData nitrogenData;
@@ -39,10 +40,11 @@ class NutrientTrendChart extends StatelessWidget {
                 if (value >= 0 && value < days.length) {
                   return SideTitleWidget(
                     meta: meta,
+                    space: 8,
                     child: Text(
                       days[value.toInt()],
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: AppColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
@@ -61,14 +63,15 @@ class NutrientTrendChart extends StatelessWidget {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 30,
+              reservedSize: 40,
               getTitlesWidget: (value, meta) {
                 return SideTitleWidget(
                   meta: meta,
+                  space: 8,
                   child: Text(
                     value.toInt().toString(),
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: AppColors.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -78,60 +81,23 @@ class NutrientTrendChart extends StatelessWidget {
           ),
         ),
         borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: 6,
-        minY: 0,
-        maxY: 100,
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                String name;
-                if (spot.barIndex == 0) {
-                  name = nitrogenData.name;
-                } else if (spot.barIndex == 1) {
-                  name = phosphorusData.name;
-                } else {
-                  name = potassiumData.name;
-                }
-                return LineTooltipItem(
-                  '${spot.y.toInt()} ppm',
-                  const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: '\n$name',
-                      style: TextStyle(
-                        color: spot.barIndex == 0
-                            ? nitrogenData.color
-                            : spot.barIndex == 1
-                                ? phosphorusData.color
-                                : potassiumData.color,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                );
-              }).toList();
-            },
-          ),
-        ),
         lineBarsData: [
-          _createLineData(nitrogenData, 0),
-          _createLineData(phosphorusData, 1),
-          _createLineData(potassiumData, 2),
+          _createLineData(nitrogenData),
+          _createLineData(phosphorusData),
+          _createLineData(potassiumData),
         ],
       ),
     );
   }
 
-  LineChartBarData _createLineData(NutrientData data, int index) {
+  LineChartBarData _createLineData(NutrientData data) {
+    final spots = <FlSpot>[];
+    for (int i = 0; i < data.trendData.length; i++) {
+      spots.add(FlSpot(i.toDouble(), data.trendData[i].toDouble()));
+    }
+
     return LineChartBarData(
-      spots: data.trendData.asMap().entries.map((entry) {
-        return FlSpot(entry.key.toDouble(), entry.value.toDouble());
-      }).toList(),
+      spots: spots,
       isCurved: true,
       color: data.color,
       barWidth: 3,
@@ -140,7 +106,7 @@ class NutrientTrendChart extends StatelessWidget {
         show: true,
         getDotPainter: (spot, percent, barData, index) {
           return FlDotCirclePainter(
-            radius: 4,
+            radius: 3,
             color: data.color,
             strokeWidth: 2,
             strokeColor: Colors.white,
@@ -149,7 +115,7 @@ class NutrientTrendChart extends StatelessWidget {
       ),
       belowBarData: BarAreaData(
         show: true,
-        color: data.color.withOpacity(0.15),
+        color: data.color.withOpacity(0.1),
       ),
     );
   }
