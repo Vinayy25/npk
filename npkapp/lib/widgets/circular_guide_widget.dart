@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:npkapp/models/nutrient_model.dart';
 import 'dart:math' as math;
 
@@ -87,7 +86,7 @@ class _CircularGaugeWidgetState extends State<CircularGaugeWidget>
                             children: [
                               Text(
                                 widget.data.value.toStringAsFixed(0),
-                                style: GoogleFonts.poppins(
+                                style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                   color: widget.data.color,
@@ -95,7 +94,7 @@ class _CircularGaugeWidgetState extends State<CircularGaugeWidget>
                               ),
                               Text(
                                 widget.data.unit,
-                                style: GoogleFonts.poppins(
+                                style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[600],
                                 ),
@@ -119,7 +118,7 @@ class _CircularGaugeWidgetState extends State<CircularGaugeWidget>
                     ),
                     child: Text(
                       widget.data.name,
-                      style: GoogleFonts.poppins(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: widget.data.color,

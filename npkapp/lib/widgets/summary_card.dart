@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../utils/colors.dart';
 
 class SummaryCard extends StatelessWidget {
@@ -44,7 +43,7 @@ class SummaryCard extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: GoogleFonts.poppins(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
@@ -67,7 +66,7 @@ class SummaryCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             value,
-            style: GoogleFonts.poppins(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,

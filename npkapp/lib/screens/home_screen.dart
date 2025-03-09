@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:npkapp/models/nutrient_model.dart';
+import 'package:npkapp/screens/alerts_screen.dart';
+import 'package:npkapp/screens/history_screen.dart';
+import 'package:npkapp/screens/settings_screen.dart';
 import 'package:npkapp/utils/colors.dart';
 import 'package:npkapp/widgets/circular_guide_widget.dart';
 import 'package:npkapp/widgets/nutrient_chart.dart';
@@ -18,22 +20,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  late TabController _tabController;
   late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
     )..forward();
 
-    // Initial fetch of data
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NPKState>().fetchData();
-    });
+    // Initial fetch not needed anymore since we're fetching periodically
+    // The NPKState constructor starts the periodic fetching
   }
 
   @override
@@ -55,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _tabController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -65,15 +62,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Use listen: false in build method and only listen in specific Consumers
     final npkState = Provider.of<NPKState>(context, listen: false);
 
+    // In your build method, check for dark mode
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
-        title: _buildAnimatedTitle(),
+        title: _buildAnimatedTitle(isDarkMode),
         actions: [
+          // New navigation icons in app bar
+          IconButton(
+            icon: const Icon(Icons.dashboard_rounded, color: AppColors.primary),
+            tooltip: 'Dashboard',
+            onPressed: () {
+              // Already on dashboard
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.history_rounded,
+                color: AppColors.textSecondary),
+            tooltip: 'History',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HistoryScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_rounded,
+                color: AppColors.textSecondary),
+            tooltip: 'Alerts',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AlertsScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+
+          // Existing refresh button
           Consumer<NPKState>(
             builder: (context, npkState, child) {
               return npkState.isLoading
@@ -83,30 +116,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
+                          strokeWidth: 2,
                           color: AppColors.textPrimary,
                         ),
                       ),
                     )
                   : IconButton(
-                      icon: const Icon(Icons.refresh_rounded,
-                          color: AppColors.textPrimary),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: AppColors.textPrimary,
+                      ),
+                      tooltip: 'Refresh',
                       onPressed: () {
-                        context.read<NPKState>().fetchData();
+                        // Use manual refresh which forces loading state
+                        context.read<NPKState>().refreshData();
                       },
                     );
             },
           ),
+
+          // Optional: settings button (if you want to keep it)
           IconButton(
             icon: const Icon(Icons.settings_rounded,
                 color: AppColors.textPrimary),
+            tooltip: 'Settings',
             onPressed: () {
               // Navigate to settings
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
             },
           ),
           const SizedBox(width: 8),
         ],
       ),
       body: AnimatedGradientBackground(
+        isDarkMode: isDarkMode, // Pass this to your animated background
         child: SafeArea(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -145,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           curve:
                               const Interval(0.2, 0.7, curve: Curves.easeOut),
                         )),
-                        child: _buildGaugesSection(),
+                        child: _buildGaugesSection(isDarkMode),
                       ),
                     ),
 
@@ -167,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           curve:
                               const Interval(0.4, 0.9, curve: Curves.easeOut),
                         )),
-                        child: _buildTrendsSection(),
+                        child: _buildTrendsSection(isDarkMode),
                       ),
                     ),
 
@@ -189,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           curve:
                               const Interval(0.6, 1.0, curve: Curves.easeOut),
                         )),
-                        child: _buildRecommendationsSection(),
+                        child: _buildRecommendationsSection(isDarkMode),
                       ),
                     ),
                   ],
@@ -199,52 +245,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
       ),
-      bottomNavigationBar: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.cardBackground.withValues(alpha: 0.8),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                ),
-              ],
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicator: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: AppColors.primary.withValues(alpha: 0.1),
-              ),
-              labelColor: AppColors.primary,
-              unselectedLabelColor: AppColors.textSecondary,
-              tabs: const [
-                Tab(icon: Icon(Icons.dashboard_rounded), text: 'Dashboard'),
-                Tab(icon: Icon(Icons.history_rounded), text: 'History'),
-                Tab(icon: Icon(Icons.notifications_rounded), text: 'Alerts'),
-              ],
-            ),
-          ),
-        ),
-      ),
+      // Remove the bottom navigation bar
+      // bottomNavigationBar: null,
     );
   }
 
-  Widget _buildAnimatedTitle() {
+  Widget _buildAnimatedTitle(bool isDarkMode) {
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(seconds: 1),
       builder: (context, value, child) {
         return ShaderMask(
           blendMode: BlendMode.srcIn,
@@ -287,13 +296,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFF43A047).withValues(alpha: 0.2),
-                        Color(0xFF00ACC1).withValues(alpha: 0.1),
+                        Color(0xFF43A047).withOpacity(0.2),
+                        Color(0xFF00ACC1).withOpacity(0.1),
                       ],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0xFF2E7D32).withValues(alpha: 0.2),
+                        color: Color(0xFF2E7D32).withOpacity(0.2),
                         blurRadius: 8,
                         spreadRadius: 1,
                       ),
@@ -301,7 +310,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                   child: Icon(
                     Icons.eco_rounded,
-                    color: Color(0xFF2E7D32),
+                    color:
+                        isDarkMode ? Colors.lightGreen[300] : Color(0xFF2E7D32),
                     size: 20,
                   ),
                 ),
@@ -312,17 +322,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   Text(
                     'NPK Sensor',
-                    style: GoogleFonts.poppins(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
+                      color: isDarkMode
+                          ? Colors.white
+                          : Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   Text(
                     'Dashboard',
-                    style: GoogleFonts.poppins(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
+                      color: isDarkMode
+                          ? Colors.white
+                          : Theme.of(context).textTheme.titleLarge?.color,
                     ),
                   ),
                 ],
@@ -348,13 +364,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               end: Alignment.bottomRight,
               colors: [
                 AppColors.primary,
-                AppColors.primary.withValues(alpha: 0.8),
+                AppColors.primary.withOpacity(0.8),
               ],
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.3),
+                color: AppColors.primary.withOpacity(0.3),
                 offset: const Offset(0, 4),
                 blurRadius: 12,
               ),
@@ -369,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   Text(
                     'Soil Health',
-                    style: GoogleFonts.poppins(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -384,7 +400,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                     child: Text(
                       npkState.soilHealth,
-                      style: GoogleFonts.poppins(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: Colors.white,
@@ -409,16 +425,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       'K',
                       npkState.potassiumData.value.toInt().toString(),
                       npkState.potassiumData.color),
-                  _buildSummaryItem(
-                      'pH', npkState.pH.toStringAsFixed(1), Colors.amber),
-                  _buildSummaryItem('Moisture', '${npkState.moisture.toInt()}%',
-                      Colors.lightBlue),
                 ],
               ),
               const SizedBox(height: 16),
               Text(
                 'Last updated: $updatedTime',
-                style: GoogleFonts.poppins(
+                style: TextStyle(
                   fontSize: 12,
                   color: Colors.white70,
                 ),
@@ -435,7 +447,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Text(
           label,
-          style: GoogleFonts.poppins(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: Colors.white70,
@@ -445,13 +457,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.2),
+            color: color.withOpacity(0.2),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
+            border: Border.all(color: color.withOpacity(0.5), width: 1.5),
           ),
           child: Text(
             value,
-            style: GoogleFonts.poppins(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -462,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildGaugesSection() {
+  Widget _buildGaugesSection(bool isDarkMode) {
     return Consumer<NPKState>(
       builder: (context, npkState, child) {
         return Column(
@@ -470,10 +482,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           children: [
             Text(
               'Real-time Readings',
-              style: GoogleFonts.poppins(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: isDarkMode ? Colors.white : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 16),
@@ -493,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTrendsSection() {
+  Widget _buildTrendsSection(bool isDarkMode) {
     return Consumer<NPKState>(
       builder: (context, npkState, child) {
         return Column(
@@ -504,20 +516,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 Text(
                   'Nutrient Trends',
-                  style: GoogleFonts.poppins(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+                    color: isDarkMode ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
                 TextButton.icon(
                   onPressed: () {
                     // Navigate to detailed trends
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const HistoryScreen()),
+                    );
                   },
                   icon: const Icon(Icons.timeline, size: 18),
                   label: const Text('View All'),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
+                    foregroundColor:
+                        isDarkMode ? Colors.lightGreen[300] : AppColors.primary,
                   ),
                 ),
               ],
@@ -527,11 +545,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               height: 240,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.cardBackground,
+                color:
+                    isDarkMode ? Color(0xFF1E1E1E) : AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.05),
                     offset: const Offset(0, 4),
                     blurRadius: 12,
                   ),
@@ -549,7 +568,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildRecommendationsSection() {
+  Widget _buildRecommendationsSection(bool isDarkMode) {
     return Consumer<NPKState>(
       builder: (context, npkState, child) {
         final recommendations = npkState.getRecommendations();
@@ -559,20 +578,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           children: [
             Text(
               'Recommendations',
-              style: GoogleFonts.poppins(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: isDarkMode ? Colors.white : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
-                color: AppColors.cardBackground,
+                color:
+                    isDarkMode ? Color(0xFF1E1E1E) : AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.05),
                     offset: const Offset(0, 4),
                     blurRadius: 12,
                   ),
@@ -590,6 +610,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         recommendation['description'],
                         recommendation['color'],
                         recommendation['icon'],
+                        isDarkMode,
                       ),
                       if (!isLast)
                         const Divider(height: 1, indent: 16, endIndent: 16),
@@ -604,8 +625,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildRecommendationItem(
-      String title, String description, Color color, IconData icon) {
+  Widget _buildRecommendationItem(String title, String description, Color color,
+      IconData icon, bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
@@ -614,7 +635,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color),
@@ -626,18 +647,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.poppins(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.textPrimary,
+                    color: isDarkMode ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: GoogleFonts.poppins(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.textSecondary,
+                    color:
+                        isDarkMode ? Colors.white70 : AppColors.textSecondary,
                   ),
                 ),
               ],

@@ -3,10 +3,12 @@ import 'package:npkapp/utils/colors.dart';
 
 class AnimatedGradientBackground extends StatefulWidget {
   final Widget child;
+  final bool isDarkMode;
 
   const AnimatedGradientBackground({
     super.key,
     required this.child,
+    this.isDarkMode = false,
   });
 
   @override
@@ -18,8 +20,8 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
     with TickerProviderStateMixin {
   late AnimationController _controller;
 
-  // Define gradient color sets that will shift subtly
-  final List<List<Color>> _colorSets = [
+  // Define gradient color sets for light mode
+  final List<List<Color>> _lightColorSets = [
     [
       Color(0xFFF7FAFC),
       Color(0xFFF0F4F8),
@@ -31,6 +33,22 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
     [
       Color(0xFFF2FCFA),
       Color(0xFFEAF8F5),
+    ],
+  ];
+
+  // Define gradient color sets for dark mode
+  final List<List<Color>> _darkColorSets = [
+    [
+      Color(0xFF1A1A1A),
+      Color(0xFF121212),
+    ],
+    [
+      Color(0xFF1E1E1E),
+      Color(0xFF141414),
+    ],
+    [
+      Color(0xFF202020),
+      Color(0xFF161616),
     ],
   ];
 
@@ -52,7 +70,7 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
           status == AnimationStatus.dismissed) {
         setState(() {
           _currentColorSet = _nextColorSet;
-          _nextColorSet = (_nextColorSet + 1) % _colorSets.length;
+          _nextColorSet = (_nextColorSet + 1) % _getColorSets().length;
         });
       }
     });
@@ -64,8 +82,15 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
     super.dispose();
   }
 
+  // Choose color sets based on theme
+  List<List<Color>> _getColorSets() {
+    return widget.isDarkMode ? _darkColorSets : _lightColorSets;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colorSets = _getColorSets();
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -76,13 +101,13 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
               end: Alignment.bottomRight,
               colors: [
                 Color.lerp(
-                  _colorSets[_currentColorSet][0],
-                  _colorSets[_nextColorSet][0],
+                  colorSets[_currentColorSet][0],
+                  colorSets[_nextColorSet][0],
                   _controller.value,
                 )!,
                 Color.lerp(
-                  _colorSets[_currentColorSet][1],
-                  _colorSets[_nextColorSet][1],
+                  colorSets[_currentColorSet][1],
+                  colorSets[_nextColorSet][1],
                   _controller.value,
                 )!,
               ],
@@ -90,24 +115,30 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
           ),
           child: Stack(
             children: [
-              // Decorative elements
+              // Decorative elements with opacity adjusted for dark mode
               Positioned(
                 top: -50,
                 right: -50,
                 child: _buildDecorativeCircle(
-                    200, AppColors.nitrogen.withOpacity(0.05)),
+                    200,
+                    AppColors.nitrogen
+                        .withOpacity(widget.isDarkMode ? 0.1 : 0.05)),
               ),
               Positioned(
                 bottom: 100,
                 left: -80,
                 child: _buildDecorativeCircle(
-                    180, AppColors.phosphorus.withOpacity(0.04)),
+                    180,
+                    AppColors.phosphorus
+                        .withOpacity(widget.isDarkMode ? 0.1 : 0.04)),
               ),
               Positioned(
                 bottom: -80,
                 right: 50,
                 child: _buildDecorativeCircle(
-                    150, AppColors.potassium.withOpacity(0.05)),
+                    150,
+                    AppColors.potassium
+                        .withOpacity(widget.isDarkMode ? 0.1 : 0.05)),
               ),
 
               // Main content
