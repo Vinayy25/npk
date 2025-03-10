@@ -179,3 +179,12 @@ flutter-pi --help
 By following these steps, you’ll be able to configure your Raspberry Pi to run Flutter apps using flutter-pi. This setup bypasses the need for a full desktop environment, enabling you to run Flutter apps directly from the command line. Happy coding!
 
 > citeturn0search4
+>
+> 
+to setup startup script
+nano ~/.bashrc 
+
+
+to enter no profile mode bypassing bashrc
+
+ssh pi@192.168.96.171 -t "bash --noprofile --norc"

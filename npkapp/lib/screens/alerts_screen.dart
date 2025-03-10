@@ -66,7 +66,8 @@ class _AlertsScreenState extends State<AlertsScreen>
   final List<Map<String, dynamic>> _plantProfiles = [
     {
       'name': 'Tomatoes',
-      'icon': '🍅',
+      'icon': Icons.agriculture, // Replace emoji with agriculture icon
+      'color': Colors.red[600], // Add color for visual distinction
       'n': {'min': 40, 'max': 80},
       'p': {'min': 45, 'max': 70},
       'k': {'min': 40, 'max': 60},
@@ -74,7 +75,8 @@ class _AlertsScreenState extends State<AlertsScreen>
     },
     {
       'name': 'Leafy Greens',
-      'icon': '🥬',
+      'icon': Icons.eco, // Replace emoji with leaf/eco icon
+      'color': Colors.green[700],
       'n': {'min': 50, 'max': 90},
       'p': {'min': 30, 'max': 50},
       'k': {'min': 30, 'max': 50},
@@ -82,7 +84,8 @@ class _AlertsScreenState extends State<AlertsScreen>
     },
     {
       'name': 'Roses',
-      'icon': '🌹',
+      'icon': Icons.local_florist, // Replace emoji with flower icon
+      'color': Colors.pink[400],
       'n': {'min': 35, 'max': 75},
       'p': {'min': 45, 'max': 85},
       'k': {'min': 35, 'max': 60},
@@ -90,7 +93,8 @@ class _AlertsScreenState extends State<AlertsScreen>
     },
     {
       'name': 'Custom',
-      'icon': '⚙️',
+      'icon': Icons.settings, // Replace emoji with settings icon
+      'color': Colors.grey[700],
     },
   ];
 
@@ -404,9 +408,10 @@ class _AlertsScreenState extends State<AlertsScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
+                Icon(
                   profile['icon'],
-                  style: const TextStyle(fontSize: 32),
+                  color: profile['color'],
+                  size: 32,
                 ),
                 const SizedBox(height: 8),
                 Text(
