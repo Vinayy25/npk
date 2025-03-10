@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:npkapp/utils/colors.dart';
 import 'package:npkapp/state/npk_state.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -99,7 +101,7 @@ class _AlertsScreenState extends State<AlertsScreen>
   ];
 
   // Alert history
-  final List<Map<String, dynamic>> _alertHistory = [
+  List<Map<String, dynamic>> _alertHistory = [
     {
       'timestamp':
           DateTime.now().subtract(const Duration(hours: 1, minutes: 23)),
@@ -128,6 +130,63 @@ class _AlertsScreenState extends State<AlertsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadAlertSettings();
+  }
+
+  Future<void> _loadAlertSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    try {
+      // Load alert settings for each nutrient type
+      for (final key in _alertSettings.keys) {
+        if (prefs.containsKey('alert_${key}_enabled')) {
+          setState(() {
+            _alertSettings[key]!['enabled'] =
+                prefs.getBool('alert_${key}_enabled') ?? true;
+            _alertSettings[key]!['minValue'] =
+                prefs.getDouble('alert_${key}_minValue') ??
+                    _alertSettings[key]!['minValue'];
+            _alertSettings[key]!['maxValue'] =
+                prefs.getDouble('alert_${key}_maxValue') ??
+                    _alertSettings[key]!['maxValue'];
+          });
+        }
+      }
+
+      // Load notification frequency
+      final savedFrequency = prefs.getString('alert_frequency');
+      if (savedFrequency != null &&
+          _frequencyOptions.contains(savedFrequency)) {
+        setState(() {
+          _alertFrequency = savedFrequency;
+        });
+      }
+
+      // Load alert history
+      final historyJson = prefs.getString('alert_history');
+      if (historyJson != null) {
+        final historyList = jsonDecode(historyJson) as List;
+        setState(() {
+          _alertHistory = historyList
+              .map((item) {
+                // Convert timestamp string back to DateTime
+                return {
+                  'timestamp': DateTime.parse(item['timestamp']),
+                  'type': item['type'],
+                  'message': item['message'],
+                  'value': item['value'],
+                  'threshold': item['threshold'],
+                };
+              })
+              .toList()
+              .cast<Map<String, dynamic>>();
+        });
+      }
+
+      print('Alert settings loaded successfully');
+    } catch (e) {
+      print('Error loading alert settings: $e');
+    }
   }
 
   @override
@@ -135,9 +194,19 @@ class _AlertsScreenState extends State<AlertsScreen>
     _tabController.dispose();
     super.dispose();
   }
+  
 
   @override
   Widget build(BuildContext context) {
+    // Inside _buildConfigureTab method, after building all the UI elements:
+// Add this near the end of the method, just before the return statement
+    final npkState = Provider.of<NPKState>(context);  
+
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Check current readings against thresholds
+      // This should only run once after the UI is built
+      checkCurrentReadings(npkState);
+    });
     // Add this to detect dark mode
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -163,6 +232,37 @@ class _AlertsScreenState extends State<AlertsScreen>
             Tab(text: 'History'),
           ],
         ),
+        actions: [
+          if (_tabController.index == 1) // Only show when on History tab
+            IconButton(
+              icon: Icon(Icons.delete_outline),
+              tooltip: 'Clear Alert History',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text('Clear Alert History'),
+                    content: Text(
+                        'Are you sure you want to delete all alert history?'),
+                    actions: [
+                      TextButton(
+                        child: Text('Cancel'),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      TextButton(
+                        child:
+                            Text('Clear', style: TextStyle(color: Colors.red)),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          clearAlertHistory();
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: TabBarView(
         controller: _tabController,
@@ -766,14 +866,158 @@ class _AlertsScreenState extends State<AlertsScreen>
     );
   }
 
-  void _saveAlertSettings() {
-    // In a real app, you would save these to shared preferences or a database
-    // For now, we'll just show a success message
+  void _saveAlertSettings() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Color(0xFF252525)
+            : Colors.white,
+        content: Row(
+          children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            const SizedBox(width: 16),
+            Text(
+              'Saving settings...',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Save alert settings for each nutrient
+      for (final key in _alertSettings.keys) {
+        await prefs.setBool(
+            'alert_${key}_enabled', _alertSettings[key]!['enabled'] as bool);
+        await prefs.setDouble('alert_${key}_minValue',
+            _alertSettings[key]!['minValue'] as double);
+        await prefs.setDouble('alert_${key}_maxValue',
+            _alertSettings[key]!['maxValue'] as double);
+      }
+
+      // Save alert frequency
+      await prefs.setString('alert_frequency', _alertFrequency);
+
+      // Save alert history - convert DateTime to string for storage
+      final historyList = _alertHistory.map((alert) {
+        final alertCopy = Map<String, dynamic>.from(alert);
+        alertCopy['timestamp'] =
+            (alert['timestamp'] as DateTime).toIso8601String();
+        return alertCopy;
+      }).toList();
+
+      await prefs.setString('alert_history', jsonEncode(historyList));
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Alert settings saved successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving settings: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> addNewAlert(String type, double value, double threshold,
+      bool isBelowThreshold) async {
+    // Format the message based on whether value is below or above threshold
+    final message = isBelowThreshold
+        ? '$type levels below minimum threshold'
+        : '$type levels above maximum threshold';
+
+    // Create alert object
+    final newAlert = {
+      'timestamp': DateTime.now(),
+      'type': type.toLowerCase(),
+      'message': message,
+      'value': value,
+      'threshold': threshold,
+    };
+
+    // Add to history
+    setState(() {
+      _alertHistory.insert(
+          0, newAlert); // Add to the beginning for chronological order
+
+      // Limit history size (optional)
+      if (_alertHistory.length > 100) {
+        _alertHistory = _alertHistory.sublist(0, 100);
+      }
+    });
+
+    // Save updated history
+    final prefs = await SharedPreferences.getInstance();
+    final historyList = _alertHistory.map((alert) {
+      final alertCopy = Map<String, dynamic>.from(alert);
+      alertCopy['timestamp'] =
+          (alert['timestamp'] as DateTime).toIso8601String();
+      return alertCopy;
+    }).toList();
+
+    await prefs.setString('alert_history', jsonEncode(historyList));
+  }
+
+  void checkCurrentReadings(NPKState npkState) {
+    // Check each nutrient if alerts are enabled
+    _checkNutrient('nitrogen', npkState.nitrogenData.value);
+    _checkNutrient('phosphorus', npkState.phosphorusData.value);
+    _checkNutrient('potassium', npkState.potassiumData.value);
+    _checkNutrient('pH', npkState.pH);
+    _checkNutrient('moisture', npkState.moisture);
+  }
+
+  void _checkNutrient(String key, double value) {
+    if (!(_alertSettings.containsKey(key) &&
+        _alertSettings[key]!['enabled'] as bool)) {
+      return;
+    }
+
+    final minValue = _alertSettings[key]!['minValue'] as double;
+    final maxValue = _alertSettings[key]!['maxValue'] as double;
+
+    if (value < minValue) {
+      addNewAlert(key, value, minValue, true);
+    } else if (value > maxValue) {
+      addNewAlert(key, value, maxValue, false);
+    }
+  }
+
+  Future<void> clearAlertHistory() async {
+    setState(() {
+      _alertHistory.clear();
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('alert_history', jsonEncode([]));
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Alert settings saved successfully'),
-        backgroundColor: Colors.green,
+        content: Text('Alert history cleared'),
+        backgroundColor: Colors.blue,
       ),
     );
   }
