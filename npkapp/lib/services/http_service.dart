@@ -8,11 +8,11 @@ class HttpService {
   // For emulator, use 10.0.2.2 to access host machine
   // For physical device, use the actual IP address of your Raspberry Pi
 
-  // static const String baseUrl =
-  //     'http://127.0.0.1:8000'; // Update with your Pi's IP
-
   static const String baseUrl =
-      'http://192.168.96.171:8000'; // Update with your Pi's IP
+      'http://127.0.0.1:8000'; // Update with your Pi's IP
+
+  // static const String baseUrl =
+  //     'http://192.168.96.171:8000'; // Update with your Pi's IP
 
   // Endpoint for NPK data
   static const String npkEndpoint = '/npk-data';
